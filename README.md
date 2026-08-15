@@ -1,3 +1,7 @@
+<img src="./doc/title.png" width="400px">
+
+
+
 ## awesome-epaper
 
 Waveshare 7.5inch e-paper Bにカレンダーや写真を表示させるリポジトリ
@@ -230,3 +234,10 @@ EPD_MODE=mock uvicorn main:app --app-dir src
 
 ## contact
 `contact@nishima-tech.com`
+
+
+ps. このリポジトリは以下のリポジトリを継承・統合しています
+
+https://github.com/mitsuiJao/e-paper-server
+
+https://github.com/mitsuiJao/e-paper-client
