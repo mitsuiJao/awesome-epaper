@@ -6,13 +6,13 @@
 
 Waveshare 7.5inch e-paper Bにカレンダーや写真を表示させるリポジトリ
 
-Raspberry Pi上でFastAPIサーバを動かし、適当なブラウザでアクセスするとダッシュボードが表示される。calendar/image/test/clearの4モードから選んでdraw!ボタンを押下すると、その場で描画と実機表示まで行う
+Raspberry Pi上でFastAPIサーバを動かし、適当なブラウザでアクセスするとダッシュボードが表示されます。
 
-描画するたびに結果のプレビューPNGが `src/img/image.png` に同じファイル名で上書き保存ほぞんされる
+calendar/image/test/clearの4モードから選んでdraw!ボタンを押下すると、その場で描画と実機表示まで行います
 
-`src/` はそのままFastAPIアプリのルートで、`waveshare_epd/` はサーバから見て単なるパッケージとして直接importできる。
+描画するたびに結果のプレビューPNGが `src/img/image.png` に同じファイル名で上書き保存されるためデバッグに有効
 
-実行環境は raspberrypi 3b で検証、開発環境は適当なlinux環境だが、e-paperに描画することができないので環境変数で対応する。詳しくは後述
+実行環境は raspberrypi 3b で検証、開発環境は適当なlinux環境ですが、e-paperに描画することができないので環境変数で対応しました。詳しくは後述
 
 raspberrypi zero w でも動作検証予定
 
@@ -91,7 +91,7 @@ sudo raspi-config
 ```
 `Interface Options -> SPI -> Enable`
 
-有効化後は一度再起動しておくと確実。
+有効化後は一度再起動しておくと確実です
 
 ```bash
 sudo reboot
