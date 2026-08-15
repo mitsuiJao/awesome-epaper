@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>e-paper dashboard</title>
+
+  <style>
+    fieldset {
+      border: none;
+      padding: 10px;
+      margin-bottom: 20px;
+    }
+    #draw {
+      padding: 10px 20px;
+      font-size: 16px;
+      cursor: pointer;
+      color: white;
+      background-color: #007BFF;
+    }
+    #clear {
+      padding: 10px 20px;
+      font-size: 16px;
+      cursor: pointer;
+    }
+  </style>
+</head>
+
+<body>
+  <h1>e-paper dashboard</h1>
+
+  <fieldset>
+    <legend>mode: </legend>
+
+    <div>
+      <input type="radio" id="calendar" name="mode" checked />
+      <label for="calendar">calendar</label>
+    </div>
+
+    <div>
+      <input type="radio" id="image" name="mode"/>
+      <label for="image">image</label>
+
+      <input type="file" id="imageFile" accept="image/*" capture="environment"/>
+    </div>
+
+    <div>
+      <input type="radio" id="test" name="mode"/>
+      <label for="test">test</label>
+    </div>
+
+    <div>
+      <input type="radio" id="clear" name="mode"/>
+      <label for="clear">clear</label>
+    </div>
+  </fieldset>
+
+  <button id="draw">draw!</button>
+
+  <p>photo size: 800x480, 5:3</p>
+
+  <script>
+    const drawButton = document.getElementById("draw");
+
+    drawButton.addEventListener("click", async () => {
+      const mode = document.querySelector('input[name="mode"]:checked').id;
+
+      if (mode === "image" && !document.getElementById("imageFile").files.length) {
+        alert("画像を選択してください");
+        return;
+      }
+
+      drawButton.disabled = true;
+      drawButton.textContent = "描画中...";
+
+      try {
+        let res;
+        if (mode === "image") {
+          const formData = new FormData();
+          formData.append("file", document.getElementById("imageFile").files[0]);
+          res = await fetch("/draw/image", { method: "POST", body: formData });
+        } else if (mode === "calendar") {
+          res = await fetch("/draw");
+        } else {
+          res = await fetch(`/draw/${mode}`, { method: "POST" });
+        }
+
+        if (!res.ok) {
+          throw new Error(await res.text());
+        }
+        alert("描画しました");
+      } catch (e) {
+        alert("失敗しました: " + e.message);
+      } finally {
+        drawButton.disabled = false;
+        drawButton.textContent = "draw!";
+      }
+    });
+  </script>
+</body>
+
+</html>

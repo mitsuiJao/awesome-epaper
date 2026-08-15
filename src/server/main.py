@@ -1,9 +1,12 @@
+import io
 import os
 import sys
 sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
 
-from fastapi import FastAPI
-from fastapi.responses import HTMLResponse, Response
+from fastapi import FastAPI, File, HTTPException, UploadFile
+from fastapi.responses import FileResponse, Response
+from PIL import Image, ImageOps
+from draw import Draw
 from draw_calendar import DrawCalendar
 from waveshare_epd import epd7in5b_V2
 
@@ -11,40 +14,96 @@ from waveshare_epd import epd7in5b_V2
 app = FastAPI()
 media_type = "application/octet-stream"
 
-INDEX_HTML = """
-<!doctype html>
-<html lang="ja">
-<head><meta charset="utf-8"><title>e-paper calendar</title></head>
-<body>
-<h1>e-paper calendar</h1>
-<p><a href="/draw">今すぐ描画</a></p>
-</body>
-</html>
-"""
+BASE_DIR = os.path.dirname(__file__)
+STATIC_DIR = os.path.join(BASE_DIR, "static")
+IMG_DIR = os.path.join(BASE_DIR, "img")
+PREVIEW_PATH = os.path.join(IMG_DIR, "image.png")
 
 
-@app.get("/", response_class=HTMLResponse)
+def save_preview(blackimage, redimage):
+    merged = Image.new("RGB", (800, 480), (255, 255, 255))
+    merged.paste(blackimage)
+    for y in range(480):
+        for x in range(800):
+            if redimage.getpixel((x, y)) == 0:
+                merged.putpixel((x, y), (255, 0, 0))
+    merged.save(PREVIEW_PATH)
+
+
+def push_to_epd(blackimage, redimage):
+    save_preview(blackimage, redimage)
+
+    epd = epd7in5b_V2.EPD()
+    epd.init()
+    epd.display(epd.getbuffer(blackimage), epd.getbuffer(redimage))
+    epd.sleep()
+
+
+def build_test_pattern():
+    d = Draw()
+    d._scale()
+    d.text("E-PAPER TEST", 40, 40, 3, d.BLACK)
+    d.text("RED PLANE OK", 40, 120, 3, d.RED)
+    d.line(0, 240, 800, 240, 3, d.BLACK)
+    d.line(0, 300, 800, 300, 3, d.RED)
+    return d
+
+
+@app.get("/")
 async def index():
-    return INDEX_HTML
+    return FileResponse(os.path.join(STATIC_DIR, "index.html"))
 
 
 @app.get("/calendar")
 async def calendar():
     c = DrawCalendar()
     black_bytes, red_bytes = c.generate()
-    c.draw._save("img/image.png")
+    save_preview(c.draw.blackimage, c.draw.redimage)
 
     return Response(content=black_bytes + red_bytes, media_type=media_type)
 
 
-@app.get("/draw", response_class=HTMLResponse)
+@app.get("/draw")
 def draw():
     c = DrawCalendar()
     c.generate()
+    push_to_epd(c.draw.blackimage, c.draw.redimage)
 
+    return {"ok": True}
+
+
+@app.post("/draw/clear")
+def draw_clear():
     epd = epd7in5b_V2.EPD()
     epd.init()
-    epd.display(epd.getbuffer(c.draw.blackimage), epd.getbuffer(c.draw.redimage))
+    epd.Clear()
     epd.sleep()
 
-    return "<p>描画しました。 <a href=\"/\">戻る</a></p>"
+    blank = Image.new("1", (800, 480), 1)
+    save_preview(blank, blank)
+
+    return {"ok": True}
+
+
+@app.post("/draw/test")
+def draw_test():
+    d = build_test_pattern()
+    push_to_epd(d.blackimage, d.redimage)
+
+    return {"ok": True}
+
+
+@app.post("/draw/image")
+async def draw_image(file: UploadFile = File(...)):
+    data = await file.read()
+    try:
+        img = Image.open(io.BytesIO(data)).convert("RGB")
+    except Exception:
+        raise HTTPException(status_code=400, detail="画像を読み込めませんでした")
+
+    img = ImageOps.exif_transpose(img)
+    img = ImageOps.fit(img, (800, 480), Image.Resampling.LANCZOS)
+    redimage = Image.new("1", (800, 480), 1)
+    push_to_epd(img, redimage)
+
+    return {"ok": True}

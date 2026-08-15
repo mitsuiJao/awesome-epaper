@@ -2,21 +2,23 @@
 
 Waveshare 7.5inch e-paper B（黒/白/赤）にGoogleカレンダーの予定を表示するプロジェクト。
 
-Raspberry Pi（e-paper HATが物理結線されたマシン）上でFastAPIサーバを1プロセス動かし、`/draw` を叩くとその場で「カレンダー描画 → 実機表示」まで完結する。スマホのブラウザで `/` を開き、「今すぐ描画」を押すと更新できる。定期自動更新は今のところ無く、手動トリガーのみ。
+Raspberry Pi（e-paper HATが物理結線されたマシン）上でFastAPIサーバを1プロセス動かし、スマホのブラウザで `/` を開くとダッシュボードが表示される。calendar/image/test/clearの4モードから選んで「draw!」を押すと、その場で描画→実機表示まで完結する。定期自動更新は今のところ無く、手動トリガーのみ。描画するたびに結果のプレビューPNGが `src/server/img/image.png` に同じファイル名で上書き保存される。
 
 ```
 src/
 ├── waveshare_epd/        # Waveshare純正ドライバ（SPI/GPIO）
-├── epd_7in5b_V2_test.py  # ハードウェア疎通確認用デモ
-├── pic/                  # 上記デモが使うフォント/bmp
 ├── clear.py              # e-paperを白紙に戻す手動ユーティリティ
 └── server/
-    ├── main.py            # FastAPIアプリ（/, /draw, /calendar）
+    ├── main.py            # FastAPIアプリ（/, /draw, /draw/clear, /draw/test, /draw/image, /calendar）
+    ├── static/index.html  # スマホ向けダッシュボード（mode選択 + draw!ボタン）
+    ├── epd_7in5b_V2_test.py  # ハードウェア疎通確認用デモ
+    ├── pic/                   # 上記デモが使うフォント/bmp
     ├── draw.py            # 800x480の黒面/赤面キャンバスへの描画エンジン
     ├── draw_calendar.py   # カレンダー画面の組み立て
     ├── google_calendar.py # Googleカレンダーからの予定取得
     ├── requestAPI.py      # 祝日API等の汎用GETヘルパー
-    └── misakifont/        # 日本語ビットマップフォント
+    ├── misakifont/        # 日本語ビットマップフォント
+    └── img/                # プレビューPNGの書き出し先（毎回image.pngを上書き）
 ```
 
 ## セットアップ（Raspberry Pi上）
@@ -70,9 +72,11 @@ sudo ldconfig
 ### 5. ハードウェア疎通確認
 
 ```bash
-cd ~/epaper/src
-python epd_7in5b_V2_test.py
+cd ~/epaper
+PYTHONPATH=src python src/server/epd_7in5b_V2_test.py
 ```
+
+（`waveshare_epd` は `src/` 直下の共有ドライバなので、`src/server/`から見ると一つ上の階層になる。`PYTHONPATH=src` でそれを解決している。）
 
 `PinFactoryFallback`の警告が出ず、`Drawing on the Horizontal image`〜`Goto Sleep`まで進めば成功。
 
@@ -101,6 +105,11 @@ systemdに登録して起動時に自動実行させると便利。
 
 ## エンドポイント
 
-- `GET /` — スマホ向けの簡易操作画面。「今すぐ描画」リンクを表示。
-- `GET /draw` — カレンダーを再描画し、そのまま実機のe-paperに表示する（本命）。
-- `GET /calendar` — 描画結果を黒面/赤面のバイト列として返す（デバッグ・プレビュー用、実機表示はしない）。呼ぶたびに `src/server/img/image.png` にプレビュー画像を書き出す。
+- `GET /` — スマホ向けダッシュボード（`src/server/static/index.html`）。calendar/image/test/clearの4モードを選んで「draw!」を押すと、選択中モードに応じたエンドポイントをJSで叩く。
+- `GET /draw` — カレンダーを再描画し、そのまま実機のe-paperに表示する。
+- `POST /draw/clear` — e-paperを白紙にクリアする（`src/clear.py`と同じ処理）。
+- `POST /draw/test` — グリッド + サンプルテキストのテストパターンを実機に表示する（`src/server/epd_7in5b_V2_test.py`とは別実装）。
+- `POST /draw/image` — アップロードされた画像（`multipart/form-data`、フィールド名`file`）を800x480に切り抜き・リサイズして実機に表示する。
+- `GET /calendar` — 描画結果を黒面/赤面のバイト列として返す（デバッグ・プレビュー用、実機表示はしない）。
+
+`/draw`系エンドポイントはいずれも呼ぶたびに `src/server/img/image.png` にプレビュー画像を同じファイル名で上書き保存する。
