@@ -26,6 +26,8 @@ def main():
     scope = " ".join(google_auth.SCOPES)
 
     resp = requests.post(DEVICE_CODE_URL, data={"client_id": client_id, "scope": scope}).json()
+    if "device_code" not in resp:
+        raise RuntimeError(f"デバイスコードの取得に失敗しました: {resp}")
     device_code = resp["device_code"]
     interval = resp.get("interval", 5)
 
