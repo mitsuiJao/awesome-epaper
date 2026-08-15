@@ -1,0 +1,2 @@
+- /calendarの廃止、/draw/calendar に変更、他エンドポイントとそろえる
+- 
