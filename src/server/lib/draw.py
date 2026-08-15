@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 
 from PIL import Image, ImageDraw
-from misakifont import MisakiFont
-from misakifont.fontdata import fontdata
+from .misakifont import MisakiFont
+from .misakifont.fontdata import fontdata
 import numpy as np
 
 

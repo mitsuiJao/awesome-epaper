@@ -6,8 +6,8 @@ sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
 from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.responses import FileResponse, Response
 from PIL import Image, ImageOps
-from draw import Draw
-from draw_calendar import DrawCalendar
+from lib.draw import Draw
+from lib.draw_calendar import DrawCalendar
 from waveshare_epd import epd7in5b_V2
 
 

@@ -1,8 +1,8 @@
-from draw import Draw
+from .draw import Draw
 from datetime import datetime
 import calendar
-import requestAPI
-import google_calendar
+from . import requestAPI
+from . import google_calendar
 
 class DrawCalendar():
     def __init__(self):
@@ -77,10 +77,11 @@ class DrawCalendar():
         # self.draw.text(f"{self.WEEKDAY[datetime.isoweekday(self.now)%7]}", 336, 28, 5)
 
     def draw_events(self):
-        events = google_calendar.get_calendar_events(SERVICEACCOUNTFILE, CALENDAERID)
+        events = google_calendar.get_calendar_events()
+        if not events:
+            return
         x = 524
         y = 32
-        event = events[0]
         for i, event in enumerate(events):
             start = event['start'].get('dateTime', event['start'].get('date'))
             end = event['end'].get('dateTime', event['end'].get('date'))

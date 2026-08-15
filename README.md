@@ -9,17 +9,32 @@ src/
 ├── waveshare_epd/        # Waveshare純正ドライバ（SPI/GPIO）
 ├── clear.py              # e-paperを白紙に戻す手動ユーティリティ
 └── server/
-    ├── main.py            # FastAPIアプリ（/, /draw, /draw/clear, /draw/test, /draw/image, /calendar）
-    ├── static/index.html  # スマホ向けダッシュボード（mode選択 + draw!ボタン）
-    ├── epd_7in5b_V2_test.py  # ハードウェア疎通確認用デモ
-    ├── pic/                   # 上記デモが使うフォント/bmp
-    ├── draw.py            # 800x480の黒面/赤面キャンバスへの描画エンジン
-    ├── draw_calendar.py   # カレンダー画面の組み立て
-    ├── google_calendar.py # Googleカレンダーからの予定取得
-    ├── requestAPI.py      # 祝日API等の汎用GETヘルパー
-    ├── misakifont/        # 日本語ビットマップフォント
-    └── img/                # プレビューPNGの書き出し先（毎回image.pngを上書き）
+    ├── main.py              # FastAPIアプリ（/, /draw, /draw/clear, /draw/test, /draw/image, /calendar）
+    ├── google_auth_setup.py # 初回のみ手動実行するデバイスフロー認証（token.json生成）
+    ├── epd_7in5b_V2_test.py # ハードウェア疎通確認用デモ
+    ├── secret.py.example    # secret.pyのひな形（実体はgitignore対象）
+    ├── static/index.html    # スマホ向けダッシュボード（mode選択 + draw!ボタン）
+    ├── pic/                 # epd_7in5b_V2_test.pyが使うフォント/bmp
+    ├── img/                 # プレビューPNGの書き出し先（毎回image.pngを上書き）
+    └── lib/                 # 描画エンジン・データ取得まわりの実装一式
+        ├── draw.py            # 800x480の黒面/赤面キャンバスへの描画エンジン
+        ├── draw_calendar.py   # カレンダー画面の組み立て
+        ├── google_calendar.py # Googleカレンダーからの予定取得
+        ├── google_tasks.py    # Google Tasksからのタスク取得（表示側は未実装）
+        ├── google_auth.py     # Calendar/Tasks共通のOAuth2認証情報ロード・更新・永続化
+        ├── requestAPI.py      # 祝日API等の汎用GETヘルパー
+        └── misakifont/        # 日本語ビットマップフォント
 ```
+
+
+## env
+必要に応じて以下のリポジトリからドライバー置き換えてください
+
+https://github.com/waveshareteam/e-Paper/tree/master/RaspberryPi_JetsonNano/python/lib/waveshare_epd
+
+
+画像サイズとかも多分変わっちゃうけど、変更してみて
+
 
 ## セットアップ（Raspberry Pi上）
 
@@ -41,6 +56,17 @@ pip install -r requirements.txt
 ```
 
 （`python3-dev`が無いと`Python.h: No such file or directory`でビルドに失敗する）
+
+#### 実機用と開発用の違い
+
+`requirements.txt` は実機（Raspberry Pi）用のハードウェア制御パッケージ（`spidev`/`gpiozero`/`lgpio`、および`gpiozero`の依存の`colorzero`）と、開発用のパッケージ（FastAPI/画像処理/Google API等）を1本にまとめている。
+
+ただし `main.py` は起動時に `waveshare_epd` を無条件でimportしており、`waveshare_epd/epdconfig.py` はロード時にRaspberry Pi判定を行うため、`uvicorn main:app`自体は実機以外では動かない（ハードウェア用パッケージを抜くだけでは解決しない）。開発中に描画結果だけを`img/image.png`で確認したい場合は、`main.py`を経由せず描画エンジンを直接呼ぶと実機・ハードウェア用パッケージ無しで確認できる:
+
+```bash
+cd src/server
+python -c "from lib.draw_calendar import DrawCalendar; c = DrawCalendar(); c.generate(); c.draw._save('img/image.png')"
+```
 
 ### 3. SPIを有効化する
 
@@ -80,16 +106,39 @@ PYTHONPATH=src python src/server/epd_7in5b_V2_test.py
 
 `PinFactoryFallback`の警告が出ず、`Drawing on the Horizontal image`〜`Goto Sleep`まで進めば成功。
 
-### 6. Googleカレンダー連携の準備
+### 6. Google Calendar / Tasks 連携の準備
 
-GCPでサービスアカウントを作成し、認証情報JSONを `src/server/` に配置する。次に:
+Google TasksはサービスアカウントではAPIを叩けない（個人アカウント向けAPIのため、ドメイン全体の委任が使えない）ため、OAuth2のデバイス認可フロー（Device Authorization Grant）でユーザー本人の同意を得る方式にしている。カレンダーとタスクは同じ`token.json`（1つの認証情報）を共有する。
+
+#### 6-1. GCP側の準備
+
+1. GCP ConsoleでCalendar APIとTasks APIの両方を有効化する。
+2. 「認証情報を作成」→「OAuthクライアントID」→種類は**TVおよび限定入力機能を持つデバイス**を選択して作成する。
+3. 発行されたクライアントシークレットJSONをダウンロードし、`src/server/`に配置する（ファイル名は任意、下記`secret.py`で指定）。
+
+#### 6-2. secret.pyの準備
 
 ```bash
 cd ~/epaper/src/server
 cp secret.py.example secret.py
 ```
 
-`secret.py` を編集し、`GOOGLE_SERVICEACCOUNTFILE`（JSONファイル名）と `GOOGLE_CALENDAERID`（カレンダーID）を実際の値に書き換える。`secret.py` とサービスアカウントJSONは`.gitignore`済み。
+`secret.py` を編集し、`GOOGLE_OAUTH_CLIENT_SECRET_FILE`（ダウンロードしたJSONのファイル名）と `GOOGLE_CALENDAERID`（カレンダーID）を実際の値に書き換える。`secret.py`・クライアントシークレットJSON・後述の`token.json`はいずれも`.gitignore`済み。
+
+#### 6-3. 初回認証（手動・1回だけ）
+
+RaspberryPiはヘッドレスでブラウザが無いが、デバイス認可フローなので特別なポートフォワード等は不要。普段通りSSHでPiに入って実行するだけでよい。
+
+```bash
+cd ~/epaper
+source .venv/bin/activate
+cd src/server
+python google_auth_setup.py
+```
+
+コンソールに表示されるURLとコードを、**任意の端末**（スマホでも普段使いのPCでもよい。Piと同じネットワークにいる必要すらない）のブラウザで開いて入力し、Googleの同意画面を完了する。スクリプトが裏で自動的に承認を検知し、`src/server/token.json`を生成する。以降のサーバ起動時はこのファイルから自動的に（必要ならリフレッシュして）認証情報を読み込む。ブラウザ操作は不要になる。
+
+`token.json`の中身が失効・取り消しされた場合（`RuntimeError`がログに出る）は、`google_auth_setup.py`を再実行すれば良い。
 
 ### 7. サーバを起動する
 
