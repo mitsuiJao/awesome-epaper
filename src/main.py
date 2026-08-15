@@ -1,7 +1,5 @@
 import io
 import os
-import sys
-sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
 
 from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.responses import FileResponse, Response
@@ -21,6 +19,7 @@ PREVIEW_PATH = os.path.join(IMG_DIR, "image.png")
 
 
 def save_preview(blackimage, redimage):
+    os.makedirs(IMG_DIR, exist_ok=True)
     merged = Image.new("RGB", (800, 480), (255, 255, 255))
     merged.paste(blackimage)
     for y in range(480):

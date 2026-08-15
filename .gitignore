@@ -1,6 +1,6 @@
 .venv
 __pycache__
-src/server/*.json
-src/server/secret.py
-src/server/img/*.png
+src/*.json
+src/secret.py
+src/img/*.png
 token.json
