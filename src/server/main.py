@@ -92,6 +92,7 @@ async def draw_image(file: UploadFile = File(...)):
 
     img = ImageOps.exif_transpose(img)
     img = ImageOps.fit(img, (800, 480), Image.Resampling.LANCZOS)
+    img = img.convert("1")
     redimage = Image.new("1", (800, 480), 1)
     push_to_epd(img, redimage)
 
