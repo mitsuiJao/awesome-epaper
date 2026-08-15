@@ -6,7 +6,7 @@ sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
 from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.responses import FileResponse, Response
 from PIL import Image, ImageOps
-from lib.draw import Draw
+from epd_7in5b_V2_test import run_demo
 from lib.draw_calendar import DrawCalendar
 from lib.epd_backend import get_epd
 
@@ -37,16 +37,6 @@ def push_to_epd(blackimage, redimage):
     epd.init()
     epd.display(epd.getbuffer(blackimage), epd.getbuffer(redimage))
     epd.sleep()
-
-
-def build_test_pattern():
-    d = Draw()
-    d._scale()
-    d.text("E-PAPER TEST", 40, 40, 3, d.BLACK)
-    d.text("RED PLANE OK", 40, 120, 3, d.RED)
-    d.line(0, 240, 800, 240, 3, d.BLACK)
-    d.line(0, 300, 800, 300, 3, d.RED)
-    return d
 
 
 @app.get("/")
@@ -87,8 +77,7 @@ def draw_clear():
 
 @app.post("/draw/test")
 def draw_test():
-    d = build_test_pattern()
-    push_to_epd(d.blackimage, d.redimage)
+    run_demo()
 
     return {"ok": True}
 
@@ -103,6 +92,7 @@ async def draw_image(file: UploadFile = File(...)):
 
     img = ImageOps.exif_transpose(img)
     img = ImageOps.fit(img, (800, 480), Image.Resampling.LANCZOS)
+    img = img.convert("1")
     redimage = Image.new("1", (800, 480), 1)
     push_to_epd(img, redimage)
 

@@ -8,14 +8,15 @@ if os.path.exists(libdir):
     sys.path.append(libdir)
 
 import logging
-from waveshare_epd import epd7in5b_V2
 import time
 from PIL import Image,ImageDraw,ImageFont
-import traceback
 
 logging.basicConfig(level=logging.DEBUG)
 
-try:
+
+def run_demo():
+    from waveshare_epd import epd7in5b_V2
+
     logging.info("epd7in5b_V2 Demo")
 
     epd = epd7in5b_V2.EPD()
@@ -98,10 +99,14 @@ try:
     logging.info("Goto Sleep...")
     epd.sleep()
 
-except IOError as e:
-    logging.info(e)
 
-except KeyboardInterrupt:
-    logging.info("ctrl + c:")
-    epd7in5b_V2.epdconfig.module_exit(cleanup=True)
-    exit()
+if __name__ == '__main__':
+    try:
+        run_demo()
+    except IOError as e:
+        logging.info(e)
+    except KeyboardInterrupt:
+        logging.info("ctrl + c:")
+        from waveshare_epd import epd7in5b_V2
+        epd7in5b_V2.epdconfig.module_exit(cleanup=True)
+        exit()

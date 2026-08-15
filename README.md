@@ -10,7 +10,7 @@ src/
 ├── clear.py              # e-paperを白紙に戻す手動ユーティリティ
 └── server/
     ├── main.py              # FastAPIアプリ（/, /draw, /draw/clear, /draw/test, /draw/image, /calendar）
-    ├── google_auth_setup.py # 初回のみ手動実行するデバイスフロー認証（token.json生成）
+    ├── google_auth_setup.py # 初回のみ手動実行するOAuth認証（SSHポートフォワード経由、token.json生成）
     ├── epd_7in5b_V2_test.py # ハードウェア疎通確認用デモ
     ├── secret.py.example    # secret.pyのひな形（実体はgitignore対象）
     ├── static/index.html    # スマホ向けダッシュボード（mode選択 + draw!ボタン）
@@ -53,7 +53,7 @@ source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-`requirements.txt` は開発ホストでも実機（Raspberry Pi）でも共通の最小構成（FastAPI/画像処理/Google API等）。この段階でも`main.py`はハードウェア無しで起動できる（後述の`EPD_MODE`参照）。
+`requirements.txt` は開発ホストでも実機（Raspberry Pi）でも共通の最小構成（FastAPI/画像処理/Google API等。OAuth認証で使う`google-auth-oauthlib`もここに含まれる）。この段階でも`main.py`はハードウェア無しで起動できる（後述の`EPD_MODE`参照）。
 
 実機でe-paperに実際に描画するには、追加でハードウェア制御パッケージ（`spidev`/`gpiozero`/`lgpio`、および`gpiozero`の依存の`colorzero`）を入れる。`spidev`はCコンパイルが必要なので、先にビルド環境を入れておく。
 
@@ -116,12 +116,14 @@ PYTHONPATH=src python src/server/epd_7in5b_V2_test.py
 
 ### 6. Google Calendar / Tasks 連携の準備
 
-Google TasksはサービスアカウントではAPIを叩けない（個人アカウント向けAPIのため、ドメイン全体の委任が使えない）ため、OAuth2のデバイス認可フロー（Device Authorization Grant）でユーザー本人の同意を得る方式にしている。カレンダーとタスクは同じ`token.json`（1つの認証情報）を共有する。
+Google TasksはサービスアカウントではAPIを叩けない（個人アカウント向けAPIのため、ドメイン全体の委任が使えない）ため、OAuth2のユーザー本人同意フローで認証情報を得る方式にしている。カレンダーとタスクは同じ`token.json`（1つの認証情報）を共有する。
+
+`tasks.readonly`のようなセンシティブスコープは、OAuth2のDevice Authorization Grant（デバイス認可フロー、いわゆる「どの端末でもOKなURL+コード入力」方式）では`invalid_scope`エラーになり取得できない（Google側の制限）。そのため`google-auth-oauthlib`の`InstalledAppFlow`（`run_local_server()`）を使い、SSHのローカルポートフォワード経由でPi上で直接ブラウザ同意を完了させる方式にしている。
 
 #### 6-1. GCP側の準備
 
 1. GCP ConsoleでCalendar APIとTasks APIの両方を有効化する。
-2. 「認証情報を作成」→「OAuthクライアントID」→種類は**TVおよび限定入力機能を持つデバイス**を選択して作成する。
+2. 「認証情報を作成」→「OAuthクライアントID」→種類は**デスクトップ アプリ**を選択して作成する（`InstalledAppFlow`のループバックリダイレクト`http://localhost:<port>/...`に対応する種類）。
 3. 発行されたクライアントシークレットJSONをダウンロードし、`src/server/`に配置する（ファイル名は任意、下記`secret.py`で指定）。
 
 #### 6-2. secret.pyの準備
@@ -135,16 +137,24 @@ cp secret.py.example secret.py
 
 #### 6-3. 初回認証（手動・1回だけ）
 
-RaspberryPiはヘッドレスでブラウザが無いが、デバイス認可フローなので特別なポートフォワード等は不要。普段通りSSHでPiに入って実行するだけでよい。
+RaspberryPiはヘッドレスでブラウザが無いため、SSHのローカルポートフォワードで手元の端末のブラウザとPi上のリスナーをつなぐ。**デバイス認可フローと違い、SSHポートフォワードを張った端末のブラウザでないと認証できない**（任意の端末では不可）。
 
-```bash
-cd ~/epaper
-source .venv/bin/activate
-cd src/server
-python google_auth_setup.py
-```
+1. 手元の端末（Piと直接SSH接続する端末）から、ローカルポートフォワード付きでPiにSSH接続する。ポート番号は`google_auth_setup.py`側の`port=43211`と一致させる。
 
-コンソールに表示されるURLとコードを、**任意の端末**（スマホでも普段使いのPCでもよい。Piと同じネットワークにいる必要すらない）のブラウザで開いて入力し、Googleの同意画面を完了する。スクリプトが裏で自動的に承認を検知し、`src/server/token.json`を生成する。以降のサーバ起動時はこのファイルから自動的に（必要ならリフレッシュして）認証情報を読み込む。ブラウザ操作は不要になる。
+   ```bash
+   ssh -L 43211:localhost:43211 pi@<Piのアドレス>
+   ```
+
+2. そのSSHセッション内（＝Pi上）で認証スクリプトを実行する。
+
+   ```bash
+   cd ~/epaper
+   source .venv/bin/activate
+   cd src/server
+   python google_auth_setup.py
+   ```
+
+3. コンソールに表示されるURLを、**手順1でポートフォワードを張った手元の端末のブラウザ**で開き、Googleの同意画面を完了する。ブラウザは`http://localhost:43211/...`にリダイレクトされ、SSHトンネル経由でPi上のリスナーに届く。スクリプトが自動的に検知し、`src/server/token.json`を生成して終了する。以降のサーバ起動時はこのファイルから自動的に（必要ならリフレッシュして）認証情報を読み込む。ブラウザ操作は不要になる。
 
 `token.json`の中身が失効・取り消しされた場合（`RuntimeError`がログに出る）は、`google_auth_setup.py`を再実行すれば良い。
 
@@ -154,6 +164,8 @@ python google_auth_setup.py
 cd ~/epaper
 source .venv/bin/activate
 uvicorn main:app --app-dir src/server
+
+EPD_MODE=mock uvicorn main:app --app-dir src/server
 ```
 
 `--port` オプションでポート番号を指定できる（デフォルト8000）。スマホから同一LAN内のPiにアクセスし `http://<Piのアドレス>:8000/` を開いて「今すぐ描画」を押すと更新される。`EPD_MODE`は実機では未設定のままでよい（デフォルトが実機モード）。

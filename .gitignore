@@ -3,3 +3,4 @@ __pycache__
 src/server/*.json
 src/server/secret.py
 src/server/img/*.png
+token.json
