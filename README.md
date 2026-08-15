@@ -236,6 +236,7 @@ EPD_MODE=mock uvicorn main:app --app-dir src
 `contact@nishima-tech.com`
 
 
+---
 ps. このリポジトリは以下のリポジトリを継承・統合しています
 
 https://github.com/mitsuiJao/e-paper-server
