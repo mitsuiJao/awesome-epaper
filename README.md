@@ -22,6 +22,7 @@ src/
         ├── google_calendar.py # Googleカレンダーからの予定取得
         ├── google_tasks.py    # Google Tasksからのタスク取得（表示側は未実装）
         ├── google_auth.py     # Calendar/Tasks共通のOAuth2認証情報ロード・更新・永続化
+        ├── epd_backend.py     # EPD_MODEで実機/開発モックを切り替えるEPD生成
         ├── requestAPI.py      # 祝日API等の汎用GETヘルパー
         └── misakifont/        # 日本語ビットマップフォント
 ```
@@ -48,27 +49,34 @@ source .venv/bin/activate
 
 ### 2. 必要なPythonパッケージを入れる
 
-`spidev`はCコンパイルが必要なので、先にビルド環境を入れておく。
+```bash
+pip install -r requirements.txt
+```
+
+`requirements.txt` は開発ホストでも実機（Raspberry Pi）でも共通の最小構成（FastAPI/画像処理/Google API等）。この段階でも`main.py`はハードウェア無しで起動できる（後述の`EPD_MODE`参照）。
+
+実機でe-paperに実際に描画するには、追加でハードウェア制御パッケージ（`spidev`/`gpiozero`/`lgpio`、および`gpiozero`の依存の`colorzero`）を入れる。`spidev`はCコンパイルが必要なので、先にビルド環境を入れておく。
 
 ```bash
 sudo apt install -y python3-dev build-essential swig
-pip install -r requirements.txt
+pip install -r requirements-hardware.txt
 ```
 
 （`python3-dev`が無いと`Python.h: No such file or directory`でビルドに失敗する）
 
-#### 実機用と開発用の違い
+#### 実機用と開発用の違い（EPD_MODE）
 
-`requirements.txt` は実機（Raspberry Pi）用のハードウェア制御パッケージ（`spidev`/`gpiozero`/`lgpio`、および`gpiozero`の依存の`colorzero`）と、開発用のパッケージ（FastAPI/画像処理/Google API等）を1本にまとめている。
+`main.py`は環境変数`EPD_MODE`でe-paperへの出力先を切り替える。FastAPIのエンドポイント・描画ロジック自体はどちらのモードでも完全に同じで、分岐するのは最後にハードウェアへ実際に描画するかどうかだけ。
 
-ただし `main.py` は起動時に `waveshare_epd` を無条件でimportしており、`waveshare_epd/epdconfig.py` はロード時にRaspberry Pi判定を行うため、`uvicorn main:app`自体は実機以外では動かない（ハードウェア用パッケージを抜くだけでは解決しない）。開発中に描画結果だけを`img/image.png`で確認したい場合は、`main.py`を経由せず描画エンジンを直接呼ぶと実機・ハードウェア用パッケージ無しで確認できる:
+- 未設定（デフォルト）＝実機モード。従来通りPi上の物理ディスプレイに描画する。`requirements-hardware.txt`のインストールと、以降のSPI/lgpioのセットアップ（手順3・4）が必要。
+- `EPD_MODE=mock`＝開発モード。`waveshare_epd`（ハードウェア制御ドライバ）には一切触れず、`/draw`系エンドポイントを叩くたびに`img/image.png`へプレビュー保存されるだけになる。開発ホストでは`requirements-hardware.txt`もSPI/lgpioのセットアップも不要で、`requirements.txt`だけで動く。
 
 ```bash
 cd src/server
-python -c "from lib.draw_calendar import DrawCalendar; c = DrawCalendar(); c.generate(); c.draw._save('img/image.png')"
+EPD_MODE=mock uvicorn main:app --app-dir .
 ```
 
-### 3. SPIを有効化する
+### 3. SPIを有効化する（実機のみ）
 
 ```bash
 sudo raspi-config
@@ -79,7 +87,7 @@ Interface Options → SPI → Enable。有効化後は一度再起動してお�
 sudo reboot
 ```
 
-### 4. lgpioを入れる（GPIO制御用）
+### 4. lgpioを入れる（GPIO制御用・実機のみ）
 
 `gpiozero`はデフォルトだとlgpio/RPi.GPIO/pigpioのどれかを探しにいくが、どれも無いと不安定な`NativeFactory`にフォールバックしてGPIOアクセスに失敗する。lgpioを入れて解消する。
 
@@ -148,9 +156,9 @@ source .venv/bin/activate
 uvicorn main:app --app-dir src/server
 ```
 
-`--port` オプションでポート番号を指定できる（デフォルト8000）。スマホから同一LAN内のPiにアクセスし `http://<Piのアドレス>:8000/` を開いて「今すぐ描画」を押すと更新される。
+`--port` オプションでポート番号を指定できる（デフォルト8000）。スマホから同一LAN内のPiにアクセスし `http://<Piのアドレス>:8000/` を開いて「今すぐ描画」を押すと更新される。`EPD_MODE`は実機では未設定のままでよい（デフォルトが実機モード）。
 
-systemdに登録して起動時に自動実行させると便利。
+systemdに登録して起動時に自動実行させると便利。`Environment=EPD_MODE=real`をunitファイルに明示しておくと、実機での起動であることが分かりやすい（省略しても既定値なので動作は変わらない）。
 
 ## エンドポイント
 

@@ -8,7 +8,7 @@ from fastapi.responses import FileResponse, Response
 from PIL import Image, ImageOps
 from lib.draw import Draw
 from lib.draw_calendar import DrawCalendar
-from waveshare_epd import epd7in5b_V2
+from lib.epd_backend import get_epd
 
 
 app = FastAPI()
@@ -33,7 +33,7 @@ def save_preview(blackimage, redimage):
 def push_to_epd(blackimage, redimage):
     save_preview(blackimage, redimage)
 
-    epd = epd7in5b_V2.EPD()
+    epd = get_epd()
     epd.init()
     epd.display(epd.getbuffer(blackimage), epd.getbuffer(redimage))
     epd.sleep()
@@ -74,7 +74,7 @@ def draw():
 
 @app.post("/draw/clear")
 def draw_clear():
-    epd = epd7in5b_V2.EPD()
+    epd = get_epd()
     epd.init()
     epd.Clear()
     epd.sleep()

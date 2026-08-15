@@ -1,0 +1,4 @@
+colorzero==2.0
+gpiozero==2.0.1.post3
+lgpio==0.2.2.0
+spidev==3.8
