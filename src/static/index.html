@@ -80,8 +80,6 @@
           const formData = new FormData();
           formData.append("file", document.getElementById("imageFile").files[0]);
           res = await fetch("/draw/image", { method: "POST", body: formData });
-        } else if (mode === "calendar") {
-          res = await fetch("/draw");
         } else {
           res = await fetch(`/draw/${mode}`, { method: "POST" });
         }

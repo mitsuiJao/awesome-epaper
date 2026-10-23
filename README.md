@@ -222,11 +222,11 @@ EPD_MODE=mock uvicorn main:app --app-dir src
 ## エンドポイント
 
 - `GET /` — ダッシュボード`src/static/index.html` calendar/image/test/clearの4モード
-- `GET /draw` — カレンダーを再描画し、そのまま実機のe-paperに表示する
+- `POST /draw/calendar` — カレンダーを再描画し、そのまま実機のe-paperに表示する
 - `POST /draw/clear` — e-paperを白紙にクリアする（`src/clear.py`と同じ処理）。
 - `POST /draw/test` — `src/epd_7in5b_V2_test.py`を実行する、 https://github.com/waveshareteam/e-Paper/tree/master/RaspberryPi_JetsonNano/python/examples
 - `POST /draw/image` — アップロードされた画像を800x480に切り抜き・リサイズして実機に表示する、`multipart/form-data`、フィールド名`file`
-- `GET /calendar` — 描画結果を黒面/赤面のバイト列として返す、廃止予定
+- `GET /draw/calendar/preview` — 描画結果を黒面/赤面のバイト列として返す、廃止予定（現在コメントアウト中）
 
 `/draw`系エンドポイントはいずれも呼ぶたびに `src/img/image.png` にプレビュー画像を同じファイル名で上書き保存する
 

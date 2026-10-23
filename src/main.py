@@ -43,17 +43,17 @@ async def index():
     return FileResponse(os.path.join(STATIC_DIR, "index.html"))
 
 
-@app.get("/calendar")
-async def calendar():
-    c = DrawCalendar()
-    black_bytes, red_bytes = c.generate()
-    save_preview(c.draw.blackimage, c.draw.redimage)
+# @app.get("/draw/calendar/preview")
+# async def draw_calendar_preview():
+#     c = DrawCalendar()
+#     black_bytes, red_bytes = c.generate()
+#     save_preview(c.draw.blackimage, c.draw.redimage)
 
-    return Response(content=black_bytes + red_bytes, media_type=media_type)
+#     return Response(content=black_bytes + red_bytes, media_type=media_type)
 
 
-@app.get("/draw")
-def draw():
+@app.post("/draw/calendar")
+def draw_calendar():
     c = DrawCalendar()
     c.generate()
     push_to_epd(c.draw.blackimage, c.draw.redimage)
