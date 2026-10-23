@@ -4,7 +4,7 @@
 
 ## awesome-epaper
 
-Waveshare 7.5inch e-paper Bにカレンダーや写真を表示させるリポジトリ
+Waveshare 7.5inch e-paper Bにカレンダーや写真を表示させるリポジトリです
 
 Raspberry Pi上でFastAPIサーバを動かし、適当なブラウザでアクセスするとダッシュボードが表示されます。
 
@@ -12,9 +12,11 @@ calendar/image/test/clearの4モードから選んでdraw!ボタンを押下す�
 
 描画するたびに結果のプレビューPNGが `src/img/image.png` に同じファイル名で上書き保存されるためデバッグに有効
 
-実行環境は raspberrypi 3b で検証、開発環境は適当なlinux環境ですが、e-paperに描画することができないので環境変数で対応しました。詳しくは後述
+実行環境は raspberrypi 3b で検証、開発環境は適当なlinux環境ですが、e-paperに描画することができないので環境変数で対応しました。
 
-raspberrypi zero w でも動作検証予定
+~~raspberrypi zero w でも動作検証予定~~
+動作しました
+
 
 ```
 src/
@@ -39,17 +41,17 @@ src/
 ```
 
 
-## env
+## e-paepr
+
+私はこのe-paperを使いました。ほかのものでも使えないこともないですが、サイズ等違うので調整してください
 
 https://www.waveshare.com/pico-epaper-7.5-b.htm
+
 
 
 必要に応じて以下のリポジトリからドライバー置き換えてください
 
 https://github.com/waveshareteam/e-Paper/tree/master/RaspberryPi_JetsonNano/python/lib/waveshare_epd
-
-
-画像サイズとかも多分変わっちゃうけど、変更してみて
 
 
 ## raspberry pi setup
@@ -64,27 +66,25 @@ source .venv/bin/activate
 
 ### 2. install
 
-`spidev`はCコンパイルが必要なので、先にビルド環境を入れる、開発時は不要
+普通に入れます。 `requirements.txt`は共通のライブラリです。**開発時は6までスキップしてください。**
+
+```bash
+pip install -r requirements.txt
+```
+
+---
+
+ここから本番時の環境構築です。
+
+`spidev`はCコンパイルが必要なので、先にビルド環境を入れます。
 
 ```bash
 sudo apt install -y python3-dev build-essential swig
 pip install -r requirements-hardware.txt
 ```
 
-`requirements.txt` は開発ホストと実機の共通のライブラリ
-
-実機でe-paperに実際に描画するには、追加でハードウェア制御ライブラリのインストール`requirements_hardware.txt`が必要で、開発時は不要
-
-```bash
-pip install -r requirements.txt
-
-# prod
-pip install -r requirements-hardware.txt
-```
 
 ### 3. SPI
-
-開発時は不要
 
 ```bash
 sudo raspi-config
@@ -93,17 +93,11 @@ sudo raspi-config
 
 有効化後は一度再起動しておくと確実です
 
-```bash
-sudo reboot
-```
 
 ### 4. lgpio install
+gpiozeroはデフォルトだとlgpio/RPi.GPIO/pigpioで不安定になることがあるのでlgpioを入れて解消します
 
-開発時は不要
-
-gpiozeroはデフォルトだとlgpio/RPi.GPIO/pigpioで不安定になることがあるのでlgpioを入れて解消
-
-`liblgpio`本体はpipでは入らないので、ソースからビルドする
+`liblgpio`本体はpipでは入らないので、ソースからビルドする必要があります
 
 ```bash
 cd ~
@@ -114,11 +108,6 @@ sudo make install
 sudo ldconfig
 ```
 
-ワーニングかエラー出るけど、まあ大丈夫
-
-
-
-
 ### 5. e-paper 確認
 
 ```bash
@@ -128,7 +117,10 @@ python src/epd_7in5b_V2_test.py
 
 https://github.com/waveshareteam/e-Paper/tree/master/RaspberryPi_JetsonNano/python/lib/waveshare_epd
 
-./src/waveshare_epd を必要に応じて↑のリポジトリから変更してください。 epdconfig.py はそのままでも大丈夫だと思う、配線ちゃんとしていれば
+./src/waveshare_epd に必要に応じて↑のリポジトリから配置してください。 epdconfig.py は変更不要です。
+
+デフォルトで最初に紹介したe-paperのドライバを配置しています。
+
 
 gpio対応は↓にまとめてます
 
@@ -139,7 +131,7 @@ https://nishima-tech.com/article/pico-epaper/
 
 ### 6. Google Calendar / Tasks 連携の準備
 
-OAuth2でブラウザのあの認証を通してリフレッシュトークンとかが書かれた `token.json` を入手する必要がある
+OAuth2でブラウザのあの認証を通してリフレッシュトークンとかが書かれた `token.json` を入手する必要があります。
 
 #### 6-1. GCP側の準備
 
@@ -149,7 +141,7 @@ OAuth2でブラウザのあの認証を通してリフレッシュトークン�
 
 ![gcp-oauth](doc/gcp-oauth.png)
 
-ファイル名は任意、`secret.py`で指定
+ファイル名は任意、`secret.py`で指定します
 
 
 #### 6-2. secret.pyの準備
@@ -159,14 +151,15 @@ cd ~/epaper/src
 cp secret.py.example secret.py
 ```
 
-`secret.py` を編集し、`GOOGLE_OAUTH_CLIENT_SECRET_FILE`（ダウンロードしたJSONのファイル名）と `GOOGLE_CALENDAERID`（カレンダーID）を実際の値に書き換える
+`secret.py` を編集し、`GOOGLE_OAUTH_CLIENT_SECRET_FILE`（ダウンロードしたJSONのファイル名）と `GOOGLE_CALENDAERID`（カレンダーID）を実際の値に書き換えてください
 
 https://calendar.google.com/calendar/u/0/r/settings
 
 カレンダーIDはGoogleカレンダーの設定を開き、左にあるマイカレンダーをクリック、下に行くとあります
 
-デフォルトのカレンダーは自分のgmailのアドレスそのままです
+![alt](./doc/google-calender-id.png)
 
+デフォルトのカレンダーは自分のgmailのアドレスそのままです
 
 
 #### 6-3. 初回認証
@@ -174,7 +167,7 @@ https://calendar.google.com/calendar/u/0/r/settings
 ヘッドレスの場合はSSHのポートフォワードで、GUIがある場合は表示されるリンクをブラウザで開きます
 
 
-**ヘッドレスの場合：**SSHクライアントからポートフォワーディングでラズパイにSSH接続する。ポート番号は43211
+**ヘッドレスの場合**：SSHクライアントからポートフォワーディングでラズパイにSSH接続します。ポート番号は43211
 ```bash
 ssh -L 43211:localhost:43211 <user>@<Piのアドレス>
 ```
@@ -187,13 +180,13 @@ cd src
 python google_auth_setup.py
 ```
 
-コンソールに表示されるURLをブラウザで開き、Googleの同意画面を通す
+コンソールに表示されるURLをブラウザで開き、Googleの同意画面を通します
 
-ブラウザは`http://localhost:43211/...`にリダイレクト、スクリプトが自動的に検知し`src/lib/token.json`を生成して終了する。
+ブラウザは`http://localhost:43211/...`にリダイレクト、スクリプトが自動的に検知し`src/lib/token.json`を生成して終了します
 
-以降のサーバ起動時はこのファイルから自動的に認証情報を読み込む。ブラウザ操作は不要、
+以降のサーバ起動時はこのファイルから自動的に認証情報を読み込むのでブラウザ操作は不要になります
 
-`token.json`の中身が失効・取り消しされた場合は`google_auth_setup.py`を再実行すること
+`token.json`の中身が失効・取り消しされた場合は`google_auth_setup.py`を再実行すればOK
 
 
 
@@ -204,31 +197,31 @@ cd ~/epaper
 source .venv/bin/activate
 uvicorn main:app --app-dir src --host 0.0.0.0 --port 8000
 
-# dev
+# 開発環境
 EPD_MODE=mock uvicorn main:app --app-dir src
 ```
 
-ポートとかhostは適当に
-
+開発環境は`EPD_MODE`を`mock`に指定してください
 
 
 #### 開発用の実行環境 EPD_MODE
 
-`main.py`は環境変数`EPD_MODE`でe-paperへの出力先を切り替える。FastAPIエンドポイント・描画ロジックのコア自体はどちらのモードでも同じで、最後にハードウェアへ実際に描画するかどうかが変わる
+`EPD_MODE`でe-paperへの出力先を切り替えます。
 
-`EPD_MODE`を省略するとハードウェア制御まで行う、開発ホストの場合はエラー出るよ
+API周りは共通ですが、`mock`の時は画像に書き出すだけにします。
+
+変数を省略すると本番環境になるので、開発環境のの場合はエラー出るので注意
 
 
 ## エンドポイント
 
-- `GET /` — ダッシュボード`src/static/index.html` calendar/image/test/clearの4モード
-- `POST /draw/calendar` — カレンダーを再描画し、そのまま実機のe-paperに表示する
-- `POST /draw/clear` — e-paperを白紙にクリアする（`src/clear.py`と同じ処理）。
-- `POST /draw/test` — `src/epd_7in5b_V2_test.py`を実行する、 https://github.com/waveshareteam/e-Paper/tree/master/RaspberryPi_JetsonNano/python/examples
-- `POST /draw/image` — アップロードされた画像を800x480に切り抜き・リサイズして実機に表示する、`multipart/form-data`、フィールド名`file`
-- `GET /draw/calendar/preview` — 描画結果を黒面/赤面のバイト列として返す、廃止予定（現在コメントアウト中）
+- `GET /` — ダッシュボード`src/static/index.html` 
+- `POST /draw/calendar` — カレンダーを再描画し、そのまま実機のe-paperに表示
+- `POST /draw/clear` — e-paperを白紙にクリア
+- `POST /draw/test` — `src/epd_7in5b_V2_test.py`を実行
+- `POST /draw/image` — アップロードされた画像を800x480にリサイズして実機に表示
 
-`/draw`系エンドポイントはいずれも呼ぶたびに `src/img/image.png` にプレビュー画像を同じファイル名で上書き保存する
+`/draw`系エンドポイントはいずれも呼ぶたびに `src/img/image.png` にプレビュー画像を同じファイル名で上書きするので、実際の描画を確認できます。
 
 
 
@@ -237,7 +230,7 @@ EPD_MODE=mock uvicorn main:app --app-dir src
 
 
 ---
-ps. このリポジトリは以下のリポジトリを継承・統合しています
+このリポジトリは以下のリポジトリを継承・統合しています
 
 https://github.com/mitsuiJao/e-paper-server
 
