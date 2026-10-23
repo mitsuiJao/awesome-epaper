@@ -1,5 +1,6 @@
 import io
 import os
+import threading
 
 from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.responses import FileResponse, Response
@@ -7,6 +8,7 @@ from PIL import Image, ImageOps
 from epd_7in5b_V2_test import run_demo
 from lib.draw_calendar import DrawCalendar
 from lib.epd_backend import get_epd
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
 
 app = FastAPI()
@@ -16,6 +18,19 @@ BASE_DIR = os.path.dirname(__file__)
 STATIC_DIR = os.path.join(BASE_DIR, "static")
 IMG_DIR = os.path.join(BASE_DIR, "img")
 PREVIEW_PATH = os.path.join(IMG_DIR, "image.png")
+
+scheduler = AsyncIOScheduler(timezone="Asia/Tokyo")
+epd_lock = threading.Lock()
+
+
+@app.on_event("startup")
+async def start_scheduler():
+    scheduler.start()
+
+
+@app.on_event("shutdown")
+async def stop_scheduler():
+    scheduler.shutdown(wait=False)
 
 
 def save_preview(blackimage, redimage):
@@ -32,12 +47,26 @@ def save_preview(blackimage, redimage):
 def push_to_epd(blackimage, redimage):
     save_preview(blackimage, redimage)
 
-    epd = get_epd()
-    epd.init()
-    epd.display(epd.getbuffer(blackimage), epd.getbuffer(redimage))
-    epd.sleep()
+    with epd_lock:
+        epd = get_epd()
+        epd.init()
+        try:
+            epd.display(epd.getbuffer(blackimage), epd.getbuffer(redimage))
+        finally:
+            epd.sleep()
 
 
+def calendar_job():
+    c = DrawCalendar()
+    c.generate()
+    push_to_epd(c.draw.blackimage, c.draw.redimage)
+
+
+def cancel_job():
+    if scheduler.get_job("job"):
+        scheduler.remove_job("job")
+        
+        
 @app.get("/")
 async def index():
     return FileResponse(os.path.join(STATIC_DIR, "index.html"))
@@ -54,9 +83,8 @@ async def index():
 
 @app.post("/draw/calendar")
 def draw_calendar():
-    c = DrawCalendar()
-    c.generate()
-    push_to_epd(c.draw.blackimage, c.draw.redimage)
+    calendar_job()
+    scheduler.add_job(calendar_job, "cron", hour=0, minute=10, id="job", replace_existing=True)
 
     return {"ok": True}
 
@@ -71,6 +99,7 @@ def draw_clear():
     blank = Image.new("1", (800, 480), 1)
     save_preview(blank, blank)
 
+    cancel_job()
     return {"ok": True}
 
 
@@ -78,6 +107,8 @@ def draw_clear():
 def draw_test():
     run_demo()
 
+    cancel_job()
+    
     return {"ok": True}
 
 
@@ -95,4 +126,6 @@ async def draw_image(file: UploadFile = File(...)):
     redimage = Image.new("1", (800, 480), 1)
     push_to_epd(img, redimage)
 
+    cancel_job()
+    
     return {"ok": True}
