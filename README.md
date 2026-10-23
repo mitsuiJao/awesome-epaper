@@ -59,7 +59,7 @@ https://github.com/waveshareteam/e-Paper/tree/master/RaspberryPi_JetsonNano/pyth
 ### 1. venv
 
 ```bash
-cd ~/epaper
+cd ~/awesome-epaper
 python -m venv .venv
 source .venv/bin/activate
 ```
@@ -74,12 +74,10 @@ pip install -r requirements.txt
 
 ---
 
-ここから本番時の環境構築です。
-
-`spidev`はCコンパイルが必要なので、先にビルド環境を入れます。
+ここから本番時の環境構築です。先にビルド環境を入れます。ubuntu, aptです
 
 ```bash
-sudo apt install -y python3-dev build-essential swig
+sudo apt install -y libopenjp2-7 libtiff6 libwebp7 libjpeg62-turbo liblcms2-2 libfreetype6 python3-dev build-essential swig libopenblas0 libgfortran5
 pip install -r requirements-hardware.txt
 ```
 
@@ -111,7 +109,7 @@ sudo ldconfig
 ### 5. e-paper 確認
 
 ```bash
-cd ~/epaper
+cd ~/awesome-epaper
 python src/epd_7in5b_V2_test.py
 ```
 
@@ -147,7 +145,7 @@ OAuth2でブラウザのあの認証を通してリフレッシュトークン�
 #### 6-2. secret.pyの準備
 
 ```bash
-cd ~/epaper/src
+cd ~/awesome-epaper/src
 cp secret.py.example secret.py
 ```
 
@@ -174,7 +172,7 @@ ssh -L 43211:localhost:43211 <user>@<Piのアドレス>
 
 
 ```bash
-cd ~/epaper
+cd ~/awesome-epaper
 source .venv/bin/activate
 cd src
 python google_auth_setup.py
@@ -193,7 +191,7 @@ python google_auth_setup.py
 ### 7. サーバを起動する
 
 ```bash
-cd ~/epaper
+cd ~/awesome-epaper
 source .venv/bin/activate
 uvicorn main:app --app-dir src --host 0.0.0.0 --port 8000
 
@@ -211,6 +209,34 @@ EPD_MODE=mock uvicorn main:app --app-dir src
 API周りは共通ですが、`mock`の時は画像に書き出すだけにします。
 
 変数を省略すると本番環境になるので、開発環境のの場合はエラー出るので注意
+
+
+### 8. （serviceに登録する）
+適当にserviceに登録します　`/etc/systemd/system/awesome-epaper.service`
+
+```ini
+[Unit]
+Description=awesome-epaper
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=user
+WorkingDirectory=/home/user/awesome-epaper
+ExecStart=/home/user/awesome-epaper/.venv/bin/uvicorn main:app --app-dir src --host 0.0.0.0 --port 8000
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+```
+
+```bash
+sudo systemctl daemon-reload
+sudo systemctl enable --now awesome-epaper.service
+```
+
 
 
 ## エンドポイント
