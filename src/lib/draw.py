@@ -1,9 +1,13 @@
 # -*- coding: utf-8 -*-
 
-from PIL import Image, ImageDraw
+import os
+from functools import lru_cache
+from PIL import Image, ImageDraw, ImageFont
 from .misakifont import MisakiFont
 from .misakifont.fontdata import fontdata
 import numpy as np
+
+FONT_DIR = os.path.dirname(__file__)
 
 
 class Draw():
@@ -25,7 +29,17 @@ class Draw():
             self.RED: self.redimage
         }
 
-    def text(self, string, x, y, m=1, color=1, fill=False, dx=0, dy=0, align="l", width=0):
+    @staticmethod
+    @lru_cache(maxsize=None)
+    def load_font(name, size):
+        return ImageFont.truetype(os.path.join(FONT_DIR, name), size)
+
+    def text(self, string, x, y, m=1, color=1, fill=False, dx=0, dy=0, align="l", width=0, font=None, bold=False):
+        if font is not None:
+            for ox in range(int(bold) + 1):
+                self.draw_method[color].text((x + ox, y), string, font=font, fill=0, anchor="lt")
+            return
+
         if align == "c" and width < len(string):
             raise ValueError
         elif align == "c":

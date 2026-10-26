@@ -94,7 +94,7 @@ class DrawCalendar():
                 self.draw.text(row["st"], x+116, y, 2)
                 self.draw.text(row["et"], x+148, y+16, 2)
 
-            self.draw.text(row["title"], x, y+40, 3, row["color"])
+            self.draw.text(row["title"], x, y+42, color=row["color"], font=self.draw.load_font("DotGothic16-Regular.ttf", 24), bold=1)
             self.draw.line(x+44, y, 556, y+32, 2)
             if i != len(rows) - 1:
                 self.draw.line(x, y+76, 780, y+76)
