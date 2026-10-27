@@ -152,6 +152,8 @@ async def draw_image(file: UploadFile = File(...)):
 
     img = ImageOps.exif_transpose(img)
     img = ImageOps.fit(img, (800, 480), Image.Resampling.LANCZOS)
+    # stretch the histogram per image so dithering isn't skewed all-black/all-white
+    img = ImageOps.autocontrast(img.convert("L"), cutoff=2)
     img = img.convert("1")
     redimage = Image.new("1", (800, 480), 1)
     push_to_epd(img, redimage)
