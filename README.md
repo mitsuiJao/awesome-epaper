@@ -37,7 +37,7 @@ src/
     ├── google_auth.py       # Calendar/Tasks共通のOAuth2認証情報ロード・更新・永続化
     ├── epd_backend.py       # EPD_MODEで実機/開発モックを切り替えるEPD生成
     ├── requestAPI.py        # 祝日API等の汎用GETヘルパー
-    └── misakifont/          # 日本語ビットマップフォント
+    └── fontdata.py          # ASCII 8x8ビットマップフォント
 ```
 
 

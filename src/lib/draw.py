@@ -3,11 +3,11 @@
 import os
 from functools import lru_cache
 from PIL import Image, ImageDraw, ImageFont
-from .misakifont import MisakiFont
-from .misakifont.fontdata import fontdata
+from .fontdata import fontdata
 import numpy as np
 
 FONT_DIR = os.path.dirname(__file__)
+JP_FONT = "DotGothic16-Regular.ttf"
 
 
 class Draw():
@@ -61,8 +61,14 @@ class Draw():
                     char_bytes = np.rot90(np.array([[i for i in f"{j:08b}"] for j in yoko_char_bytes])).tolist()
                     char_bytes = [int("".join(i), 2) for i in char_bytes]
                 else:
-                    mf = MisakiFont()
-                    char_bytes = mf.font(char_code)
+                    glyph_font = self.load_font(JP_FONT, 8 * m)
+                    if not fill and not invert:
+                        self.draw_method[color].text((x, y), c, font=glyph_font, fill=0, anchor="lt")
+                    else:
+                        self.reddraw.text((x, y), c, font=glyph_font, fill=255, anchor="lt")
+                        self.blackdraw.text((x, y), c, font=glyph_font, fill=255, anchor="lt")
+                    x += 8 * m
+                    continue
 
                 for row in range(8):
                     row_byte = char_bytes[row]
