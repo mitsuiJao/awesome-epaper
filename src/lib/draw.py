@@ -34,10 +34,14 @@ class Draw():
     def load_font(name, size):
         return ImageFont.truetype(os.path.join(FONT_DIR, name), size)
 
-    def text(self, string, x, y, m=1, color=1, fill=False, dx=0, dy=0, align="l", width=0, font=None, bold=False):
+    def text(self, string, x, y, m=1, color=1, fill=False, dx=0, dy=0, align="l", width=0, font=None, bold=False, invert=False):
         if font is not None:
             for ox in range(int(bold) + 1):
-                self.draw_method[color].text((x + ox, y), string, font=font, fill=0, anchor="lt")
+                if invert:
+                    self.blackdraw.text((x + ox, y), string, font=font, fill=255, anchor="lt")
+                    self.reddraw.text((x + ox, y), string, font=font, fill=255, anchor="lt")
+                else:
+                    self.draw_method[color].text((x + ox, y), string, font=font, fill=0, anchor="lt")
             return
 
         if align == "c" and width < len(string):
@@ -67,7 +71,7 @@ class Draw():
                             px = x + col * m
                             py = y + row * m
 
-                            if not fill:
+                            if not fill and not invert:
                                 self.draw_method[color].rectangle((px, py, px + m, py + m), fill=0)
                             else:
                                 self.reddraw.rectangle((px, py, px + m, py + m), fill=255)
@@ -80,6 +84,30 @@ class Draw():
     
     def line(self, x1, y1, x2, y2, m=1, color=1):
         self.draw_method[color].line(((x1, y1), (x2, y2)), fill=0, width=m)
+
+    def dashed_line(self, x1, y1, x2, y2, on=4, off=4, m=1, color=1):
+        length = max(abs(x2 - x1), abs(y2 - y1))
+        for s in range(0, length, on + off):
+            e = min(s + on, length)
+            self.line(x1 + (x2 - x1) * s // length, y1 + (y2 - y1) * s // length,
+                      x1 + (x2 - x1) * e // length, y1 + (y2 - y1) * e // length, m, color)
+
+    def rect(self, x1, y1, x2, y2, color=1, fill=False, width=1):
+        self.draw_method[color].rectangle((x1, y1, x2, y2), fill=0 if fill else None, outline=0, width=width)
+
+    def clear_rect(self, x1, y1, x2, y2):
+        self.blackdraw.rectangle((x1, y1, x2, y2), fill=255)
+        self.reddraw.rectangle((x1, y1, x2, y2), fill=255)
+
+    def ellipse(self, x1, y1, x2, y2, color=1, fill=False, width=1):
+        self.draw_method[color].ellipse((x1, y1, x2, y2), fill=0 if fill else None, outline=0, width=width)
+
+    def polygon(self, points, color=1, invert=False):
+        if invert:
+            self.blackdraw.polygon(points, fill=255)
+            self.reddraw.polygon(points, fill=255)
+        else:
+            self.draw_method[color].polygon(points, fill=0)
 
     def img_pil(self, pil, x=0, y=0, m=1, color=1):
         img = pil.resize((round(pil.width * m), round(pil.height * m)), Image.Resampling.LANCZOS)
