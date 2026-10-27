@@ -7,6 +7,7 @@ from fastapi.responses import FileResponse, Response
 from PIL import Image, ImageOps
 from epd_7in5b_V2_test import run_demo
 from lib.draw_calendar import DrawCalendar
+from lib.draw_market import DrawMarket
 from lib.epd_backend import get_epd
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
@@ -62,11 +63,32 @@ def calendar_job():
     push_to_epd(c.draw.blackimage, c.draw.redimage)
 
 
+last_market_ts = None
+
+
+def market_job(force=False):
+    global last_market_ts
+    try:
+        m = DrawMarket()
+    except RuntimeError as e:
+        print(e)
+        if force:
+            raise HTTPException(status_code=502, detail=str(e))
+        return
+
+    # 最終足が前回描画時と同じ(休場日・引け後)なら、再描画せず画面を保つ
+    if not force and m.data_ts == last_market_ts:
+        return
+    m.generate()
+    push_to_epd(m.draw.blackimage, m.draw.redimage)
+    last_market_ts = m.data_ts
+
+
 def cancel_job():
     if scheduler.get_job("job"):
         scheduler.remove_job("job")
-        
-        
+
+
 @app.get("/")
 async def index():
     return FileResponse(os.path.join(STATIC_DIR, "index.html"))
@@ -85,6 +107,14 @@ async def index():
 def draw_calendar():
     calendar_job()
     scheduler.add_job(calendar_job, "cron", hour=0, minute=10, id="job", replace_existing=True)
+
+    return {"ok": True}
+
+
+@app.post("/draw/market")
+def draw_market():
+    market_job(force=True)
+    scheduler.add_job(market_job, "cron", day_of_week="mon-fri", hour="9-15", minute="5,35", id="job", replace_existing=True)
 
     return {"ok": True}
 
